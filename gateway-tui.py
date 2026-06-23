@@ -37,8 +37,6 @@ class Preset:
     note: str
 
 PRESETS = [
-    Preset("minimax", "TokenRouter · MiniMax-M3", "https://api.tokenrouter.com/v1", "MiniMax-M3", "minimax", "Seu caso atual. Editável."),
-    Preset("gemini", "Google · Gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-2.5-pro", "gemini", "Preset Google. Confirme se seu gateway/endpoint é Anthropic-compatible."),
     Preset("custom", "Custom gateway", "https://api.exemplo.com/v1", "modelo-exato", "custom", "Qualquer /v1/messages compatível."),
 ]
 
@@ -138,7 +136,7 @@ def copy_text(text: str) -> tuple[bool, str]:
     return False, "Falha no clipboard."
 
 
-def test_gateway(cfg: Config, timeout: int = 30) -> tuple[bool, str]:
+def test_gateway(cfg: Config, timeout: int = 15) -> tuple[bool, str]:
     if not cfg.api_key.strip():
         return False, "API key vazia."
 
@@ -681,7 +679,7 @@ class TUI:
         is_codex = self.cfg.mode == "codex"
         prefix = "codex" if is_codex else "claude"
 
-        profile_ex = f"ex: meu-{prefix}, minimax, gemini"
+        profile_ex = f"ex: meu-{prefix}"
         v = self.prompt("Campos", f"Nome do profile/launcher ({profile_ex}):", self.cfg.profile, required=True)
         if v is None: return None
         self.cfg.profile = norm_profile(v)
@@ -725,6 +723,9 @@ class TUI:
             if k is None: continue
             if k in ("\n", "\r"):
                 if self.cfg.test_first:
+                    self.msg = "Testando endpoint..."
+                    self.err = ""
+                    self.s.refresh()
                     ok, m = test_gateway(self.cfg)
                     if not ok: self.err = "Teste falhou: " + m; continue
                     self.msg = m
@@ -734,7 +735,12 @@ class TUI:
                     continue
                 raise SystemExit(0)
             if isinstance(k, str) and k.lower() == "t":
-                ok, m = test_gateway(self.cfg); self.msg = m if ok else ""; self.err = "" if ok else "Teste falhou: " + m
+                self.msg = "Testando endpoint..."
+                self.err = ""
+                self.s.refresh()
+                ok, m = test_gateway(self.cfg)
+                self.msg = m if ok else ""
+                self.err = "" if ok else "Teste falhou: " + m
             elif isinstance(k, str) and k.lower() == "e": self.form()
             elif isinstance(k, str) and k.lower() == "o": self.options()
             elif isinstance(k, str) and k.lower() == "c":
@@ -742,12 +748,15 @@ class TUI:
                 ok, m = copy_text(text); self.msg = m; self.err = "" if ok else m
 
     def save(self):
-        saved = []
-        if self.cfg.save_launcher: saved.append(str(write_launcher(self.cfg)))
-        if self.cfg.set_global: save_fish_global(self.cfg); saved.append("fish universal vars")
-        if self.cfg.write_settings: saved.append(str(write_settings(self.cfg)))
-        if self.cfg.write_envfile: saved.append(str(write_envfile(self.cfg)))
-        if not saved: self.err = "Nada salvo. Volte e selecione uma opção."; self.options(); return self.save()
+        while True:
+            saved = []
+            if self.cfg.save_launcher: saved.append(str(write_launcher(self.cfg)))
+            if self.cfg.set_global: save_fish_global(self.cfg); saved.append("fish universal vars")
+            if self.cfg.write_settings: saved.append(str(write_settings(self.cfg)))
+            if self.cfg.write_envfile: saved.append(str(write_envfile(self.cfg)))
+            if saved: break
+            self.err = "Nada salvo. Volte e selecione uma opção."
+            self.options()
         self.msg = "Salvo: " + ", ".join(saved)
 
     def final(self):
