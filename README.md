@@ -41,13 +41,13 @@ Ela gera automaticamente launchers **fish**, configurações JSON/TOML, arquivos
 - **TUI interativa** com navegação por teclado e mouse
 - **Dois modos**: Claude Code (Anthropic) e Codex CLI (OpenAI)
 - **Preset customizável** para qualquer gateway compatível
-- **Launcher fish isolado** por profile (ex: `claude-minimax`)
+- **Launcher fish isolado** por profile (ex: `claude-meu-gateway`)
 - **Variáveis globais fish** (`set -Ux`) para usar `claude` direto
 - **Config `~/.claude/settings.json`** ou **`~/.codex/config.toml`**
 - **Arquivo `.env`** por profile
-- **Teste de endpoint** integrado antes de salvar
+- **Teste de endpoint** integrado antes de salvar (com feedback "Testando...")
 - **Seleção e cópia** de texto com o mouse
-- **Confirmação ao sair** com dados preenchidos (formulário e revisão)
+- **Confirmação ao sair** com dados preenchidos (formulário, opções e revisão)
 - **Modo texto `--plain`** para terminais sem suporte a curses
 - **Atalhos** Ctrl+V colar, Ctrl+W apagar palavra, Ctrl+U limpar campo
 - **Botão [X]** no canto superior direito para sair com o mouse
@@ -111,7 +111,7 @@ Modo fallback para terminais sem suporte a curses, SSH sem cores, ou pipes.
 | Tecla | Ação |
 |-------|------|
 | `Enter` | Confirmar / Avançar |
-| `Esc` | Sair (com confirmação se houver dados — formulário, revisão) |
+| `Esc` | Sair (com confirmação se houver dados — formulário, opções, revisão) |
 | `↑` `↓` | Navegar entre opções |
 | `1-9` | Selecionar opção pelo número |
 | `Ctrl+V` | Colar do clipboard |
@@ -140,7 +140,7 @@ Modo fallback para terminais sem suporte a curses, SSH sem cores, ou pipes.
 Útil para automação ou terminais sem curses:
 
 ```bash
-printf "1\nmeu-gateway\nhttps://api.tokenrouter.com/v1\nMiniMax-M3\ns\nn\nn\nn\nn\nn\n" | python3 gateway-tui.py --plain
+printf "1\nmeu-gateway\nhttps://api.openai.com/v1\ngpt-5.4\ns\nn\nn\nn\nn\nn\n" | python3 gateway-tui.py --plain
 ```
 
 O modo `--plain` solicita a API key via `getpass` (seguro, não fica no histórico).
@@ -178,28 +178,28 @@ Arquivo `.env` com todas as variáveis do profile.
 
 ## 💡 Exemplos
 
-### Gateway personalizado
+### Claude Code com gateway
 
 ```bash
 python3 gateway-tui.py
 # Ferramenta: Claude Code
 # Profile: meu-gateway
-# Base URL: https://api.seu-gateway.com/v1
-# Modelo: modelo-exato
+# Base URL: https://api.anthropic.com/v1
+# Modelo: claude-sonnet-4-20250514
 # Launcher: sim
 # ...
 
 claude-meu-gateway
 ```
 
-### Codex CLI + gateway OpenAI
+### Codex CLI com gateway
 
 ```bash
 python3 gateway-tui.py
 # Ferramenta: Codex CLI
 # Profile: codex-gateway
-# Base URL: https://api.exemplo.com/v1
-# Modelo: gpt-4o
+# Base URL: https://api.openai.com/v1
+# Modelo: gpt-5.4
 # ...
 
 codex-codex-gateway
