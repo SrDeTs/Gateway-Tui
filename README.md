@@ -1,13 +1,17 @@
 <p align="center">
   <img src="https://img.shields.io/badge/versão-6.2-blue" alt="v6.2">
   <img src="https://img.shields.io/badge/python-3.8%2B-green" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/plataforma-linux%20%7C%20macOS-lightgrey" alt="Linux/macOS">
+  <img src="https://img.shields.io/badge/plataforma-linux-lightgrey" alt="Linux">
   <img src="https://img.shields.io/badge/shell-fish%20%7C%20bash-orange" alt="Fish/Bash">
 </p>
 
 <h1 align="center">Gateway Config CLI</h1>
 <p align="center">
   <em>Configure Claude Code ou Codex CLI com gateways compatíveis em segundos.</em>
+</p>
+
+<p align="center">
+  🌐 <a href="README-EN.md"><strong>English version available →</strong></a>
 </p>
 
 <p align="center">
@@ -222,11 +226,11 @@ codex-codex-gateway
 
 | Componente | Suporte |
 |------------|---------|
-| **Sistemas** | Linux, macOS |
+| **Sistemas** | Linux |
 | **Shell** | Fish (launchers) |
 | **Terminal** | Qualquer terminal com curses |
 | **Mouse** | xterm, kitty, alacritty, foot, tmux, iTerm2 |
-| **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11), pbcopy (macOS) |
+| **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11) |
 | **Gateway API** | Qualquer API Anthropic-compatible (/v1/messages) ou OpenAI-compatible (/v1/chat/completions) |
 
 ---
