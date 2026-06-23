@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-6.2-blue" alt="v6.2">
   <img src="https://img.shields.io/badge/python-3.8%2B-green" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey" alt="Linux/macOS">
+  <img src="https://img.shields.io/badge/platform-linux-lightgrey" alt="Linux">
   <img src="https://img.shields.io/badge/shell-fish%20%7C%20bash-orange" alt="Fish/Bash">
 </p>
 
@@ -222,11 +222,11 @@ codex-codex-gateway
 
 | Component | Support |
 |-----------|---------|
-| **Systems** | Linux, macOS |
+| **Systems** | Linux |
 | **Shell** | Fish (launchers) |
 | **Terminal** | Any curses-compatible terminal |
 | **Mouse** | xterm, kitty, alacritty, foot, tmux, iTerm2 |
-| **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11), pbcopy (macOS) |
+| **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11) |
 | **Gateway API** | Any Anthropic-compatible API (/v1/messages) or OpenAI-compatible (/v1/chat/completions) |
 
 ---
