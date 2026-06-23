@@ -101,7 +101,7 @@ def fish_escape(v: str) -> str:
 
 
 def paste_text() -> tuple[bool, str]:
-    for cmd in (["wl-paste"], ["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"], ["pbpaste"], ["powershell", "-command", "Get-Clipboard"]):
+    for cmd in (["wl-paste"], ["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"]):
         if shutil.which(cmd[0]):
             try:
                 p = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
@@ -125,7 +125,7 @@ def copy_text(text: str) -> tuple[bool, str]:
     except Exception:
         pass
     # Fallback: ferramentas externas (wl-copy, xclip, etc.) — mais lentas
-    for cmd in (["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"], ["pbcopy"], ["clip.exe"]):
+    for cmd in (["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]):
         if shutil.which(cmd[0]):
             try:
                 p = subprocess.run(cmd, input=text, text=True, capture_output=True, timeout=2)
@@ -326,17 +326,25 @@ class TUI:
         self.h = 0  # cached terminal height
         self.w = 0  # cached terminal width
         self._needs_full_redraw = False  # força redesenho completo após mouse copy
+        self._confirming = False  # evita recursão no confirm_exit()
 
     def has_data(self) -> bool:
         """Verifica se já há dados salvos no config."""
         return bool(self.cfg.profile or self.cfg.base_url or self.cfg.model or self.cfg.api_key)
 
     def confirm_exit(self) -> bool:
-        """Pergunta se realmente deseja sair. Retorna True se deve sair, False se deve continuar."""
-        return self.choose("Confirmação", [
-            ("sim", "Sim, sair", "Perde os dados preenchidos"),
-            ("nao", "Não, continuar", "Volta ao preenchimento"),
-        ], 1) == "sim"
+        """Pergunta se realmente deseja sair. Retorna True se deve sair, False se deve continuar.
+        Usa flag _confirming para evitar recursão quando chamado de dentro do choose()."""
+        if self._confirming:
+            return True  # já está num diálogo de confirmação, sai direto
+        self._confirming = True
+        try:
+            return self.choose("Confirmação", [
+                ("sim", "Sim, sair", "Perde os dados preenchidos"),
+                ("nao", "Não, continuar", "Volta ao preenchimento"),
+            ], 1) == "sim"
+        finally:
+            self._confirming = False
 
     def color(self, n):
         try:
@@ -548,7 +556,10 @@ class TUI:
             k = self.key()
             if k is None: continue
             if k in ("\n", "\r"): return options[idx][0]
-            if k == "\x1b": raise SystemExit(0)
+            if k == "\x1b":
+                if self.has_data() and not self.confirm_exit():
+                    continue
+                raise SystemExit(0)
             if k == curses.KEY_UP:
                 idx = (idx-1) % len(options)
                 redraw = True
@@ -683,10 +694,12 @@ class TUI:
         v = self.prompt("Campos", f"Nome do profile/launcher ({profile_ex}):", self.cfg.profile, required=True)
         if v is None: return None
         self.cfg.profile = norm_profile(v)
-        v = self.prompt("Campos", "Base URL com /v1 (ex: https://api.tokenrouter.com/v1):", self.cfg.base_url, required=True)
+        base_hint = "https://api.anthropic.com/v1" if not is_codex else "https://api.openai.com/v1"
+        model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.4"
+        v = self.prompt("Campos", f"Base URL com /v1 (ex: {base_hint}):", self.cfg.base_url, required=True)
         if v is None: return None
         self.cfg.base_url = v.strip()
-        v = self.prompt("Campos", "Nome EXATO do modelo (ex: MiniMax-M3, gemini-2.5-pro):", self.cfg.model, required=True)
+        v = self.prompt("Campos", f"Nome EXATO do modelo (ex: {model_hint}):", self.cfg.model, required=True)
         if v is None: return None
         self.cfg.model = v.strip()
         v = self.prompt("Campos", "Nome amigável (opcional):", self.cfg.friendly or self.cfg.model)
