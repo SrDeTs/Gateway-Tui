@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/version-6.2-blue" alt="v6.2">
   <img src="https://img.shields.io/badge/python-3.8%2B-green" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/platform-linux-lightgrey" alt="Linux">
-  <img src="https://img.shields.io/badge/shell-fish%20%7C%20bash-orange" alt="Fish/Bash">
+  <img src="https://img.shields.io/badge/shell-fish-orange" alt="Fish">
 </p>
 
 <h1 align="center">Gateway Config CLI</h1>
@@ -36,7 +36,7 @@ It automatically generates **fish** launchers, JSON/TOML config files, `.env` fi
 
 - **Interactive TUI** with keyboard and mouse navigation
 - **Two modes**: Claude Code (Anthropic) and Codex CLI (OpenAI)
-- **Presets** for TokenRouter, Google Gemini, and Custom
+- **Customizable preset** for any compatible gateway
 - **Isolated fish launcher** per profile (e.g. `claude-minimax`)
 - **Global fish variables** (`set -Ux`) for direct `claude` usage
 - **`~/.claude/settings.json`** or **`~/.codex/config.toml`** config
@@ -174,33 +174,18 @@ Configures `openai.api_base_url`, `model`, `auth.api_key`.
 
 ## 💡 Examples
 
-### TokenRouter + MiniMax-M3
+### Custom gateway
 
 ```bash
 python3 gateway-tui.py
 # Tool: Claude Code
-# Profile: minimax
-# Base URL: https://api.tokenrouter.com/v1
-# Model: MiniMax-M3
+# Profile: my-gateway
+# Base URL: https://api.your-gateway.com/v1
+# Model: exact-model-name
 # Launcher: yes
-# Global: no
-# Settings: no
-
-# Afterwards:
-claude-minimax
-```
-
-### Google Gemini via compatible gateway
-
-```bash
-python3 gateway-tui.py
-# Tool: Claude Code
-# Profile: gemini
-# Base URL: https://generativelanguage.googleapis.com/v1beta
-# Model: gemini-2.5-pro
 # ...
 
-claude-gemini
+claude-my-gateway
 ```
 
 ### Codex CLI + OpenAI gateway
