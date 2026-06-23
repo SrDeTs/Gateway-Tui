@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/shell-fish-orange" alt="Fish">
 </p>
 
-<h1 align="center">Gateway Config CLI</h1>
+<h1 align="center">Gateway TUI</h1>
 <p align="center">
   <em>Configure Claude Code ou Codex CLI com gateways compatíveis em segundos.</em>
 </p>
@@ -30,7 +30,7 @@
 
 ## 📋 Sobre
 
-**Gateway Config CLI** é uma ferramenta de terminal interativa (TUI) que configura rapidamente o **Claude Code** (Anthropic) ou **Codex CLI** (OpenAI) para usar gateways compatíveis como **TokenRouter**, **OpenRouter**, ou qualquer API compatível com `/v1/messages` (Anthropic) ou `/v1/chat/completions` (OpenAI).
+**Gateway TUI** é uma ferramenta de terminal interativa que configura rapidamente o **Claude Code** (Anthropic) ou **Codex CLI** (OpenAI) para usar gateways compatíveis com `/v1/messages` (Anthropic) ou `/v1/chat/completions` (OpenAI).
 
 Ela gera automaticamente launchers **fish**, configurações JSON/TOML, arquivos `.env`, e variáveis globais — sem editar nada manualmente.
 

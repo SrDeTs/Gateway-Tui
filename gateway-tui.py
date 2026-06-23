@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Gateway Config CLI v6.2
+Gateway TUI v6.2
 
 Configura Claude Code ou Codex CLI com gateways compatíveis.
 Gera launchers fish, settings.json/config.toml e .env.
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-APP = "Claude Code Gateway"
+APP = "Gateway TUI"
 VERSION = "6.2"
 
 @dataclass
