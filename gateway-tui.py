@@ -399,7 +399,7 @@ class TUI:
         self.h, self.w = self.s.getmaxyx()
         h, w = self.h, self.w
         self.add(0, 2, f" {APP} v{VERSION} ", curses.A_REVERSE | curses.A_BOLD)
-        self.add(0, w - 5, " [X]", curses.A_REVERSE | curses.A_BOLD)
+        self.add(0, w - 5, " [X]", curses.A_BOLD | self.color(4))
         self.add(3, 2, title, curses.A_BOLD | self.color(1))
         if self.msg: self.add(h-4, 2, self.msg[:w-4], self.color(2) | curses.A_BOLD)
         if self.err: self.add(h-3, 2, self.err[:w-4], self.color(4) | curses.A_BOLD)
