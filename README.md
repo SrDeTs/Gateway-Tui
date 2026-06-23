@@ -218,8 +218,3 @@ codex-codex-gateway
 | **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11) |
 | **Gateway API** | Qualquer API Anthropic-compatible (/v1/messages) ou OpenAI-compatible (/v1/chat/completions) |
 
----
-
-## 📝 Licença
-
-MIT
