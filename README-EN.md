@@ -37,13 +37,13 @@ It automatically generates **fish** launchers, JSON/TOML config files, `.env` fi
 - **Interactive TUI** with keyboard and mouse navigation
 - **Two modes**: Claude Code (Anthropic) and Codex CLI (OpenAI)
 - **Customizable preset** for any compatible gateway
-- **Isolated fish launcher** per profile (e.g. `claude-minimax`)
+- **Isolated fish launcher** per profile (e.g. `claude-my-gateway`)
 - **Global fish variables** (`set -Ux`) for direct `claude` usage
 - **`~/.claude/settings.json`** or **`~/.codex/config.toml`** config
 - **`.env` file** per profile
-- **Endpoint testing** built-in before saving
+- **Endpoint testing** built-in before saving (with "Testing..." feedback)
 - **Mouse text selection and copy**
-- **Exit confirmation** when data has been entered (form and review)
+- **Exit confirmation** when data has been entered (form, options, and review)
 - **`--plain` text mode** for terminals without curses support
 - **Shortcuts**: Ctrl+V paste, Ctrl+W delete word, Ctrl+U clear field
 - **[X] button** in the top-right corner to exit with mouse click
@@ -107,7 +107,7 @@ Fallback mode for terminals without curses support, SSH without colors, or pipes
 | Key | Action |
 |-----|--------|
 | `Enter` | Confirm / Next |
-| `Esc` | Exit (confirmation if data exists — form, review) |
+| `Esc` | Exit (confirmation if data exists — form, options, review) |
 | `↑` `↓` | Navigate options |
 | `1-9` | Select option by number |
 | `Ctrl+V` | Paste from clipboard |
@@ -136,7 +136,7 @@ Fallback mode for terminals without curses support, SSH without colors, or pipes
 Useful for automation or terminals without curses:
 
 ```bash
-printf "1\nmy-gateway\nhttps://api.tokenrouter.com/v1\nMiniMax-M3\ny\nn\nn\nn\nn\nn\n" | python3 gateway-tui.py --plain
+printf "1\nmy-gateway\nhttps://api.openai.com/v1\ngpt-5.4\ny\nn\nn\nn\nn\nn\n" | python3 gateway-tui.py --plain
 ```
 
 `--plain` mode asks for the API key via `getpass` (secure, not in shell history).
@@ -174,28 +174,28 @@ Configures `openai.api_base_url`, `model`, `auth.api_key`.
 
 ## 💡 Examples
 
-### Custom gateway
+### Claude Code with gateway
 
 ```bash
 python3 gateway-tui.py
 # Tool: Claude Code
 # Profile: my-gateway
-# Base URL: https://api.your-gateway.com/v1
-# Model: exact-model-name
+# Base URL: https://api.anthropic.com/v1
+# Model: claude-sonnet-4-20250514
 # Launcher: yes
 # ...
 
 claude-my-gateway
 ```
 
-### Codex CLI + OpenAI gateway
+### Codex CLI with gateway
 
 ```bash
 python3 gateway-tui.py
 # Tool: Codex CLI
 # Profile: codex-gateway
-# Base URL: https://api.example.com/v1
-# Model: gpt-4o
+# Base URL: https://api.openai.com/v1
+# Model: gpt-5.4
 # ...
 
 codex-codex-gateway
