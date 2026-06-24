@@ -28,26 +28,12 @@ APP = "Gateway TUI"
 VERSION = "6.2"
 
 @dataclass
-class Preset:
-    key: str
-    title: str
-    base_url: str
-    model: str
-    profile: str
-    note: str
-
-PRESETS = [
-    Preset("custom", "Custom gateway", "https://api.exemplo.com/v1", "modelo-exato", "custom", "Qualquer /v1/messages compatível."),
-]
-
-@dataclass
 class Config:
     mode: str = "claude"  # "claude" ou "codex"
     profile: str = ""
     base_url: str = ""
     model: str = ""
     api_key: str = ""
-    friendly: str = ""
     discovery: bool = False
     save_launcher: bool = True
     set_global: bool = False
@@ -186,7 +172,6 @@ def save_fish_global(cfg: Config) -> None:
             "ANTHROPIC_BASE_URL": claude_base(cfg.base_url),
             "ANTHROPIC_AUTH_TOKEN": cfg.api_key,
             "ANTHROPIC_MODEL": cfg.model,
-            "TOKENROUTER_API_KEY": cfg.api_key,
             "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1" if cfg.discovery else "",
             "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS": "1" if cfg.skip_permissions else "",
         }
@@ -223,7 +208,6 @@ def write_launcher(cfg: Config) -> Path:
             f"    set -lx ANTHROPIC_BASE_URL {fish_escape(claude_base(cfg.base_url))}",
             f"    set -lx ANTHROPIC_AUTH_TOKEN {fish_escape(cfg.api_key)}",
             f"    set -lx ANTHROPIC_MODEL {fish_escape(cfg.model)}",
-            f"    set -lx TOKENROUTER_API_KEY {fish_escape(cfg.api_key)}",
         ]
         if cfg.discovery:
             lines.append("    set -lx CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY 1")
@@ -269,7 +253,6 @@ api_key = "{cfg.api_key}"
     env["ANTHROPIC_BASE_URL"] = claude_base(cfg.base_url)
     env["ANTHROPIC_AUTH_TOKEN"] = cfg.api_key
     env["ANTHROPIC_MODEL"] = cfg.model
-    env["TOKENROUTER_API_KEY"] = cfg.api_key
     if cfg.discovery:
         env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
     else:
@@ -301,7 +284,6 @@ def write_envfile(cfg: Config) -> Path:
             f"ANTHROPIC_BASE_URL={shlex.quote(claude_base(cfg.base_url))}",
             f"ANTHROPIC_AUTH_TOKEN={shlex.quote(cfg.api_key)}",
             f"ANTHROPIC_MODEL={shlex.quote(cfg.model)}",
-            f"TOKENROUTER_API_KEY={shlex.quote(cfg.api_key)}",
             f"CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY={'1' if cfg.discovery else ''}",
             f"CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS={'1' if cfg.skip_permissions else ''}",
             "",
@@ -684,6 +666,14 @@ class TUI:
             print("\033[?1003h\033[?1006h", end="", flush=True)
         except Exception: pass
         try:
+            h, w = self.s.getmaxyx()
+            if h < 24 or w < 50:
+                self.frame("Terminal pequeno demais")
+                self.add(5, 2, f"Dimensões atuais: {h}x{w}", curses.A_BOLD | self.color(4))
+                self.add(6, 2, "Mínimo recomendado: 24x50", curses.A_BOLD)
+                self.add(8, 2, "Pressione qualquer tecla para sair.", curses.A_DIM)
+                self.s.refresh(); self.key()
+                return
             self.choose_mode()
             if self.form() is None: raise SystemExit(0)
             self.options(); self.review(); self.save(); self.final()
@@ -715,8 +705,6 @@ class TUI:
         v = self.prompt("Campos", f"Nome EXATO do modelo (ex: {model_hint}):", self.cfg.model, required=True)
         if v is None: return None
         self.cfg.model = v.strip()
-        v = self.prompt("Campos", "Nome amigável (opcional):", self.cfg.friendly or self.cfg.model)
-        if v is not None: self.cfg.friendly = v.strip() or self.cfg.model
         v = self.prompt("Campos", "API key:", "", secret=True)
         if v is not None and v.strip(): self.cfg.api_key = v.strip()
         return self.cfg
@@ -776,14 +764,41 @@ class TUI:
     def save(self):
         while True:
             saved = []
-            if self.cfg.save_launcher: saved.append(str(write_launcher(self.cfg)))
-            if self.cfg.set_global: save_fish_global(self.cfg); saved.append("fish universal vars")
-            if self.cfg.write_settings: saved.append(str(write_settings(self.cfg)))
-            if self.cfg.write_envfile: saved.append(str(write_envfile(self.cfg)))
-            if saved: break
-            self.err = "Nada salvo. Volte e selecione uma opção."
+            errors = []
+            has_fish = bool(shutil.which("fish"))
+
+            if self.cfg.save_launcher:
+                if has_fish:
+                    try:
+                        saved.append(str(write_launcher(self.cfg)))
+                    except Exception as e:
+                        errors.append(f"launcher: {e}")
+                else:
+                    errors.append("launcher: fish não encontrado")
+            if self.cfg.set_global:
+                try:
+                    save_fish_global(self.cfg); saved.append("fish universal vars")
+                except Exception as e:
+                    errors.append(f"global: {e}")
+            if self.cfg.write_settings:
+                try:
+                    saved.append(str(write_settings(self.cfg)))
+                except Exception as e:
+                    errors.append(f"settings: {e}")
+            if self.cfg.write_envfile:
+                try:
+                    saved.append(str(write_envfile(self.cfg)))
+                except Exception as e:
+                    errors.append(f".env: {e}")
+
+            if errors:
+                self.err = "Erro: " + "; ".join(errors)
+            if saved:
+                self.msg = "Salvo: " + ", ".join(saved)
+                break
+            elif not errors:
+                self.err = "Nada salvo. Volte e selecione uma opção."
             self.options()
-        self.msg = "Salvo: " + ", ".join(saved)
 
     def final(self):
         is_codex = self.cfg.mode == "codex"
@@ -820,17 +835,13 @@ def plain():
     cfg.mode = "codex" if raw == "2" else "claude"
     print(f"  Modo: {'Codex CLI' if cfg.mode == 'codex' else 'Claude Code'}")
 
-    print("\nExemplos de gateways:")
-    for p in PRESETS:
-        print(f"  {p.key:<8} {p.base_url}  →  {p.model}")
-    print()
-
     is_codex = cfg.mode == "codex"
     prefix = "codex" if is_codex else "claude"
 
     cfg.profile = norm_profile(input(f"Profile (ex: meu-{prefix}): ").strip() or f"meu-{prefix}")
     cfg.base_url = input("Base URL (com /v1): ").strip()
-    cfg.model = input("Modelo (ex: MiniMax-M3, gemini-2.5-pro): ").strip()
+    model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.4"
+    cfg.model = input(f"Modelo (ex: {model_hint}): ").strip()
     cfg.api_key = getpass.getpass("API key: ").strip()
     cfg.save_launcher = input("Criar launcher fish? [S/n]: ").strip().lower() not in ("n","nao","não","no")
     cfg.set_global = input("Definir global fish set -Ux? [s/N]: ").strip().lower() in ("s","sim","y","yes")
