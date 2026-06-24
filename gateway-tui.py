@@ -758,7 +758,7 @@ class TUI:
             elif isinstance(k, str) and k.lower() == "e": self.form()
             elif isinstance(k, str) and k.lower() == "o": self.options()
             elif isinstance(k, str) and k.lower() == "c":
-                text = f"Profile: {self.cfg.profile}\nBase: {claude_base(self.cfg.base_url)}\nEndpoint: {endpoint(self.cfg.base_url)}\nModel: {self.cfg.model}"
+                text = f"Profile: {self.cfg.profile}\nBase: {claude_base(self.cfg.base_url)}\nEndpoint: {endpoint_for(self.cfg)}\nModel: {self.cfg.model}"
                 ok, m = copy_text(text); self.msg = m; self.err = "" if ok else m
 
     def save(self):
