@@ -47,7 +47,11 @@ Ela gera automaticamente launchers **fish**, configurações JSON/TOML, arquivos
 - **Arquivo `.env`** por profile
 - **Teste de endpoint** integrado antes de salvar (com feedback "Testando...")
 - **Seleção e cópia** de texto com o mouse
-- **Confirmação ao sair** com dados preenchidos (formulário, opções e revisão)
+- **Confirmação ao sair** em todas as telas (formulário, opções, revisão)
+- **Tratamento de erros** nas funções de salvar — sem crash, erros mostrados na tela
+- **Verificação de terminal** mínimo de 24x50 linhas
+- **Detecção de fish** — launcher só é gerado se fish estiver instalado
+- **Hover effect** no botão [X] com destaque ao passar o mouse
 - **Modo texto `--plain`** para terminais sem suporte a curses
 - **Atalhos** Ctrl+V colar, Ctrl+W apagar palavra, Ctrl+U limpar campo
 - **Botão [X]** no canto superior direito para sair com o mouse
