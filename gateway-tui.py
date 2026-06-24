@@ -327,6 +327,7 @@ class TUI:
         self.w = 0  # cached terminal width
         self._needs_full_redraw = False  # força redesenho completo após mouse copy
         self._confirming = False  # evita recursão no confirm_exit()
+        self._hover_x = False  # mouse hover sobre [X]
 
     def has_data(self) -> bool:
         """Verifica se já há dados salvos no config."""
@@ -399,7 +400,8 @@ class TUI:
         self.h, self.w = self.s.getmaxyx()
         h, w = self.h, self.w
         self.add(0, 2, f" {APP} v{VERSION} ", curses.A_REVERSE | curses.A_BOLD)
-        self.add(0, w - 5, " [X]", curses.A_BOLD | self.color(4))
+        x_attr = curses.A_REVERSE | curses.A_BOLD if self._hover_x else curses.A_BOLD | self.color(4)
+        self.add(0, w - 5, " [X]", x_attr)
         self.add(3, 2, title, curses.A_BOLD | self.color(1))
         if self.msg: self.add(h-4, 2, self.msg[:w-4], self.color(2) | curses.A_BOLD)
         if self.err: self.add(h-3, 2, self.err[:w-4], self.color(4) | curses.A_BOLD)
@@ -440,9 +442,20 @@ class TUI:
         except Exception:
             return
 
+        # Hover tracking para [X] (antes de qualquer outra lógica)
+        is_hover_x = (y == 0 and self.w - 5 <= x <= self.w - 2)
+        if is_hover_x != self._hover_x:
+            self._hover_x = is_hover_x
+            attr = curses.A_REVERSE | curses.A_BOLD if is_hover_x else curses.A_BOLD | self.color(4)
+            try:
+                self.add(0, self.w - 5, " [X]", attr)
+                self.s.refresh()
+            except curses.error:
+                pass
+
         if state & curses.BUTTON1_PRESSED:
             # Botao [X] no canto superior direito
-            if y == 0 and self.w - 5 <= x <= self.w - 2:
+            if is_hover_x:
                 raise SystemExit(0)
             self.mouse_start = (x, y)
             self.selecting = True
