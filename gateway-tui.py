@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Gateway TUI v6.2
+Gateway TUI v6.3
 
 Configura Claude Code ou Codex CLI com gateways compatíveis.
 Gera launchers fish, settings.json/config.toml e .env.
@@ -12,7 +12,6 @@ import base64
 import curses
 import getpass
 import json
-import os
 import re
 import shlex
 import shutil
@@ -25,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 APP = "Gateway TUI"
-VERSION = "6.2"
+VERSION = "6.3"
 
 @dataclass
 class Config:
@@ -49,10 +48,22 @@ def norm_profile(s: str) -> str:
     return s or "gateway"
 
 
-def claude_base(url: str) -> str:
+def strip_known_endpoint(url: str) -> str:
     url = url.strip().rstrip("/")
+    return re.sub(r"/v\d[\w.-]*/(?:messages|chat/completions|responses)$", "", url)
+
+
+def claude_base(url: str) -> str:
+    url = strip_known_endpoint(url)
     url = re.sub(r"/v\d[\w.-]*$", "", url)
     return url
+
+
+def codex_base(url: str) -> str:
+    url = strip_known_endpoint(url)
+    if re.search(r"/v\d[\w.-]*$", url):
+        return url
+    return url + "/v1"
 
 
 def endpoint(url: str) -> str:
@@ -60,7 +71,7 @@ def endpoint(url: str) -> str:
 
 
 def codex_endpoint(url: str) -> str:
-    return claude_base(url) + "/v1/chat/completions"
+    return codex_base(url) + "/responses"
 
 
 def endpoint_for(cfg: Config) -> str:
@@ -86,6 +97,10 @@ def fish_escape(v: str) -> str:
     return shlex.quote(v)
 
 
+def toml_string(v: str) -> str:
+    return json.dumps(v, ensure_ascii=False)
+
+
 def paste_text() -> tuple[bool, str]:
     for cmd in (["wl-paste"], ["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"]):
         if shutil.which(cmd[0]):
@@ -96,6 +111,7 @@ def paste_text() -> tuple[bool, str]:
             except Exception:
                 pass
     return False, "Nada no clipboard (ou sem ferramenta de paste)."
+
 
 def copy_text(text: str) -> tuple[bool, str]:
     text = text.strip("\n")
@@ -127,35 +143,79 @@ def test_gateway(cfg: Config, timeout: int = 15) -> tuple[bool, str]:
         return False, "API key vazia."
 
     ep = endpoint_for(cfg)
-    payload = {"model": cfg.model, "max_tokens": 80, "messages": [{"role": "user", "content": "ping"}]}
-    headers = {
-        "Authorization": f"Bearer {cfg.api_key}",
-        "Content-Type": "application/json",
-    }
-    if cfg.mode == "claude":
-        headers["anthropic-version"] = "2023-06-01"
+    if cfg.mode == "codex":
+        payload = {"model": cfg.model, "input": "ping", "max_output_tokens": 80, "store": False}
+    else:
+        payload = {"model": cfg.model, "max_tokens": 80, "messages": [{"role": "user", "content": "ping"}]}
 
-    req = urllib.request.Request(
-        ep,
-        data=json.dumps(payload).encode(),
-        method="POST",
-        headers=headers,
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            body = r.read().decode(errors="replace")
-            try:
-                obj = json.loads(body)
-                txt = ""
-                if isinstance(obj.get("content"), list) and obj["content"]:
-                    txt = str(obj["content"][0].get("text", ""))[:160]
-                return True, f"OK {r.status}. Modelo: {obj.get('model', cfg.model)}. {txt}"
-            except Exception:
-                return True, f"OK {r.status}. {body[:220]}"
-    except urllib.error.HTTPError as e:
-        return False, f"HTTP {e.code}: {e.read().decode(errors='replace')[:700]}"
-    except Exception as e:
-        return False, f"{type(e).__name__}: {e}"
+    base_headers = {"Content-Type": "application/json"}
+    if cfg.mode == "claude":
+        base_headers["anthropic-version"] = "2023-06-01"
+        auth_variants = (
+            {"Authorization": f"Bearer {cfg.api_key}"},
+            {"x-api-key": cfg.api_key},
+        )
+    else:
+        auth_variants = ({"Authorization": f"Bearer {cfg.api_key}"},)
+
+    last_error = ""
+    for auth_headers in auth_variants:
+        headers = {**base_headers, **auth_headers}
+        req = urllib.request.Request(
+            ep,
+            data=json.dumps(payload).encode(),
+            method="POST",
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                body = r.read().decode(errors="replace")
+                try:
+                    obj = json.loads(body)
+                    txt = response_text(obj)
+                    return True, f"OK {r.status}. Modelo: {obj.get('model', cfg.model)}. {txt}"
+                except Exception:
+                    return True, f"OK {r.status}. {body[:220]}"
+        except urllib.error.HTTPError as e:
+            last_error = f"HTTP {e.code}: {e.read().decode(errors='replace')[:700]}"
+            if cfg.mode != "claude" or e.code not in (401, 403):
+                return False, last_error
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
+    return False, last_error or "Falha no teste."
+
+
+def response_text(obj: dict) -> str:
+    if isinstance(obj.get("content"), list) and obj["content"]:
+        return str(obj["content"][0].get("text", ""))[:160]
+    choices = obj.get("choices")
+    if isinstance(choices, list) and choices:
+        msg = choices[0].get("message", {})
+        if isinstance(msg, dict):
+            return str(msg.get("content", ""))[:160]
+    output = obj.get("output")
+    if isinstance(output, list):
+        chunks = []
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content", [])
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "output_text":
+                    chunks.append(str(part.get("text", "")))
+        return " ".join(chunks)[:160]
+    return ""
+
+
+def fish_assignments(vals: dict[str, str], unset: tuple[str, ...] = ()) -> str:
+    chunks = [f"set -e {k}; set -Ue {k}" for k in unset]
+    for k, v in vals.items():
+        if not v:
+            continue
+        chunks.append(f"set -e {k}; set -Ue {k}; set -Ux {k} {fish_escape(v)}")
+    return "; ".join(chunks)
 
 
 def save_fish_global(cfg: Config) -> None:
@@ -167,20 +227,26 @@ def save_fish_global(cfg: Config) -> None:
         vals = {
             "OPENAI_API_KEY": cfg.api_key,
         }
+        unset = ()
     else:
         vals = {
             "ANTHROPIC_BASE_URL": claude_base(cfg.base_url),
             "ANTHROPIC_AUTH_TOKEN": cfg.api_key,
             "ANTHROPIC_MODEL": cfg.model,
-            "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1" if cfg.discovery else "",
-            "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS": "1" if cfg.skip_permissions else "",
         }
-    chunks = []
-    for k, v in vals.items():
-        chunks.append(f"set -e {k}; set -Ue {k}")
-        if v:
-            chunks.append(f"set -Ux {k} {fish_escape(v)}")
-    p = subprocess.run([fish, "-lc", "; ".join(chunks)], text=True, capture_output=True)
+        if cfg.discovery:
+            vals["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
+        if cfg.skip_permissions:
+            vals["CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS"] = "1"
+        unset = tuple(k for k in (
+            "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+            "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS",
+        ) if k not in vals)
+
+    script = fish_assignments(vals, unset)
+    if not script:
+        return
+    p = subprocess.run([fish, "-lc", script], text=True, capture_output=True)
     if p.returncode:
         raise RuntimeError(p.stderr or p.stdout or "erro no fish")
 
@@ -191,12 +257,15 @@ def write_launcher(cfg: Config) -> Path:
     name = norm_profile(cfg.profile)
 
     if cfg.mode == "codex":
-        prefix = "codex"
         path = d / f"codex-{name}.fish"
+        env_lines = []
+        if cfg.api_key:
+            env_lines.append(f"    set -lx OPENAI_API_KEY {fish_escape(cfg.api_key)}")
+        openai_base_arg = "openai_base_url=" + toml_string(codex_base(cfg.base_url))
         lines = [
             f"function codex-{name}",
-            f"    set -lx OPENAI_API_KEY {fish_escape(cfg.api_key)}",
-            f"    codex --model {fish_escape(cfg.model)} -c openai.api_base_url={fish_escape(claude_base(cfg.base_url))} $argv",
+            *env_lines,
+            f"    codex --model {fish_escape(cfg.model)} -c {fish_escape(openai_base_arg)} $argv",
             "end",
             "",
         ]
@@ -206,9 +275,10 @@ def write_launcher(cfg: Config) -> Path:
         lines = [
             f"function claude-{name}",
             f"    set -lx ANTHROPIC_BASE_URL {fish_escape(claude_base(cfg.base_url))}",
-            f"    set -lx ANTHROPIC_AUTH_TOKEN {fish_escape(cfg.api_key)}",
             f"    set -lx ANTHROPIC_MODEL {fish_escape(cfg.model)}",
         ]
+        if cfg.api_key:
+            lines.append(f"    set -lx ANTHROPIC_AUTH_TOKEN {fish_escape(cfg.api_key)}")
         if cfg.discovery:
             lines.append("    set -lx CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY 1")
         if cfg.skip_permissions:
@@ -222,19 +292,50 @@ def write_launcher(cfg: Config) -> Path:
     return path
 
 
+def update_codex_config(existing: str, cfg: Config) -> str:
+    managed = {
+        "model": cfg.model,
+        "openai_base_url": codex_base(cfg.base_url),
+    }
+    lines = existing.splitlines()
+    out = []
+    in_top_level = True
+    drop_table = False
+
+    for line in lines:
+        stripped = line.strip()
+        table = re.fullmatch(r"\[([A-Za-z0-9_.-]+)\]", stripped)
+        if table:
+            name = table.group(1)
+            drop_table = name in {"openai", "auth"}
+            in_top_level = False
+            if drop_table:
+                continue
+        if drop_table:
+            continue
+        if stripped == "# Gateway TUI managed settings":
+            continue
+        if in_top_level and any(re.match(rf"{re.escape(k)}\s*=", stripped) for k in managed):
+            continue
+        out.append(line)
+
+    prefix = ["# Gateway TUI managed settings"]
+    prefix.extend(f"{k} = {toml_string(v)}" for k, v in managed.items())
+    prefix.append("")
+    while out and not out[0].strip():
+        out.pop(0)
+    return "\n".join(prefix + out).rstrip() + "\n"
+
+
 def write_settings(cfg: Config) -> Path:
     if cfg.mode == "codex":
         d = Path.home() / ".codex"
         d.mkdir(parents=True, exist_ok=True)
         path = d / "config.toml"
-        base = claude_base(cfg.base_url)
-        content = f"""[openai]
-api_base_url = "{base}"
-model = "{cfg.model}"
-
-[auth]
-api_key = "{cfg.api_key}"
-"""
+        existing = ""
+        if path.exists():
+            existing = path.read_text(encoding="utf-8", errors="replace")
+        content = update_codex_config(existing, cfg)
         path.write_text(content, encoding="utf-8")
         path.chmod(0o600)
         return path
@@ -246,9 +347,12 @@ api_key = "{cfg.api_key}"
     data = {}
     if path.exists():
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("settings.json precisa ser um objeto JSON")
         except Exception:
-            path.with_suffix(".json.bak").write_text(path.read_text(errors="replace"))
+            path.with_suffix(".json.bak").write_text(path.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+            data = {}
     env = data.setdefault("env", {})
     env["ANTHROPIC_BASE_URL"] = claude_base(cfg.base_url)
     env["ANTHROPIC_AUTH_TOKEN"] = cfg.api_key
@@ -275,7 +379,7 @@ def write_envfile(cfg: Config) -> Path:
     if cfg.mode == "codex":
         lines = [
             f"OPENAI_API_KEY={shlex.quote(cfg.api_key)}",
-            f"OPENAI_BASE_URL={shlex.quote(claude_base(cfg.base_url))}",
+            f"OPENAI_BASE_URL={shlex.quote(codex_base(cfg.base_url))}",
             f"OPENAI_MODEL={shlex.quote(cfg.model)}",
             "",
         ]
@@ -515,10 +619,27 @@ class TUI:
                     if nxt == "[":
                         seq = "["
                         while True:
-                            c = self.s.get_wch()
-                            seq += c
-                            if c == "~" or len(seq) > 8:
+                            try:
+                                c = self.s.get_wch()
+                            except curses.error:
                                 break
+                            if isinstance(c, int):
+                                return c
+                            seq += c
+                            if c in "ABCDHF~" or len(seq) > 8:
+                                break
+                        if seq == "[A":
+                            return curses.KEY_UP
+                        if seq == "[B":
+                            return curses.KEY_DOWN
+                        if seq == "[C":
+                            return curses.KEY_RIGHT
+                        if seq == "[D":
+                            return curses.KEY_LEFT
+                        if seq == "[H":
+                            return curses.KEY_HOME
+                        if seq == "[F":
+                            return curses.KEY_END
                         if seq in ("[3;5~", "[3;2~", "[3;3~"):
                             return "\x17"
                         return None
@@ -649,7 +770,7 @@ class TUI:
                 left = val[:cur].rstrip(); new_left = re.sub(r"\S+$", "", left)
                 val = new_left + val[cur:]; cur = len(new_left); continue
             if k == "\x15": val = ""; cur = 0; continue
-            if isinstance(k, str) and (ord(k) < 32 or ord(k) == 127): continue
+            if isinstance(k, str) and len(k) == 1 and (ord(k) < 32 or ord(k) == 127): continue
             if isinstance(k, str) and k.isprintable(): val = val[:cur] + k + val[cur:]; cur += len(k)
 
     def yesno(self, title, question, default=False):
@@ -684,7 +805,7 @@ class TUI:
     def choose_mode(self):
         key = self.choose("Qual ferramenta?", [
             ("claude", "Claude Code (Anthropic)", "Usa ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN, ANTHROPIC_MODEL"),
-            ("codex", "Codex CLI (OpenAI)", "Usa OPENAI_API_KEY, --model, -c openai.api_base_url"),
+            ("codex", "Codex CLI (OpenAI)", "Usa --model, -c openai_base_url e API Responses"),
         ], 0)
         self.cfg.mode = key
         self.msg = f"Modo: {'Claude Code' if key == 'claude' else 'Codex CLI'}"
@@ -698,7 +819,7 @@ class TUI:
         if v is None: return None
         self.cfg.profile = norm_profile(v)
         base_hint = "https://api.anthropic.com/v1" if not is_codex else "https://api.openai.com/v1"
-        model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.4"
+        model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.5"
         v = self.prompt("Campos", f"Base URL com /v1 (ex: {base_hint}):", self.cfg.base_url, required=True)
         if v is None: return None
         self.cfg.base_url = v.strip()
@@ -803,7 +924,6 @@ class TUI:
     def final(self):
         is_codex = self.cfg.mode == "codex"
         prefix = "codex" if is_codex else "claude"
-        tool = "Codex CLI" if is_codex else "Claude Code"
 
         self.frame("Finalizado"); self.summary(5)
         y = 20
@@ -820,7 +940,7 @@ class TUI:
             else:
                 self.add(y+5, 2, "Ou rode: claude")
         if is_codex:
-            self.add(y+7, 2, "Dentro do Codex CLI: use --model e -c para config")
+            self.add(y+7, 2, "Codex usa config openai_base_url e API Responses")
         else:
             self.add(y+7, 2, "Dentro do Claude Code: /status e /model")
         self.add(y+9, 2, "Pressione qualquer tecla para sair.", curses.A_DIM)
@@ -840,9 +960,19 @@ def plain():
 
     cfg.profile = norm_profile(input(f"Profile (ex: meu-{prefix}): ").strip() or f"meu-{prefix}")
     cfg.base_url = input("Base URL (com /v1): ").strip()
-    model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.4"
+    model_hint = "claude-sonnet-4-20250514" if not is_codex else "gpt-5.5"
     cfg.model = input(f"Modelo (ex: {model_hint}): ").strip()
     cfg.api_key = getpass.getpass("API key: ").strip()
+
+    missing = []
+    if not cfg.base_url:
+        missing.append("Base URL")
+    if not cfg.model:
+        missing.append("Modelo")
+    if missing:
+        print("Campos obrigatórios vazios: " + ", ".join(missing), file=sys.stderr)
+        sys.exit(2)
+
     cfg.save_launcher = input("Criar launcher fish? [S/n]: ").strip().lower() not in ("n","nao","não","no")
     cfg.set_global = input("Definir global fish set -Ux? [s/N]: ").strip().lower() in ("s","sim","y","yes")
 
@@ -858,12 +988,42 @@ def plain():
     if input("Testar antes? [S/n]: ").strip().lower() not in ("n","nao","não","no"):
         ok, m = test_gateway(cfg); print(m)
         if not ok and input("Continuar mesmo assim? [s/N]: ").strip().lower() not in ("s","sim","y","yes"): sys.exit(1)
-    saved=[]
-    if cfg.save_launcher: saved.append(str(write_launcher(cfg)))
-    if cfg.set_global: save_fish_global(cfg); saved.append("fish universal vars")
-    if cfg.write_settings: saved.append(str(write_settings(cfg)))
-    if cfg.write_envfile: saved.append(str(write_envfile(cfg)))
-    print("\nSalvo:"); [print("-", s) for s in saved]
+    saved = []
+    errors = []
+    has_fish = bool(shutil.which("fish"))
+
+    if cfg.save_launcher:
+        if has_fish:
+            try:
+                saved.append(str(write_launcher(cfg)))
+            except Exception as e:
+                errors.append(f"launcher: {e}")
+        else:
+            errors.append("launcher: fish não encontrado")
+    if cfg.set_global:
+        try:
+            save_fish_global(cfg); saved.append("fish universal vars")
+        except Exception as e:
+            errors.append(f"global: {e}")
+    if cfg.write_settings:
+        try:
+            saved.append(str(write_settings(cfg)))
+        except Exception as e:
+            errors.append(f"settings: {e}")
+    if cfg.write_envfile:
+        try:
+            saved.append(str(write_envfile(cfg)))
+        except Exception as e:
+            errors.append(f".env: {e}")
+    if errors:
+        print("\nErros:", file=sys.stderr)
+        for e in errors:
+            print("-", e, file=sys.stderr)
+    if not saved:
+        sys.exit(1 if errors else 0)
+    print("\nSalvo:")
+    for s in saved:
+        print("-", s)
     if cfg.save_launcher:
         print(f"\nAbra terminal novo e rode: {prefix}-{norm_profile(cfg.profile)}")
 
