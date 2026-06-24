@@ -486,7 +486,7 @@ class TUI:
         self.h, self.w = self.s.getmaxyx()
         h, w = self.h, self.w
         self.add(0, 2, f" {APP} v{VERSION} ", curses.A_REVERSE | curses.A_BOLD)
-        x_attr = curses.A_REVERSE | curses.A_BOLD if self._hover_x else curses.A_BOLD | self.color(4)
+        x_attr = curses.A_BOLD | (self.color(5) if self._hover_x else self.color(4))
         self.add(0, w - 5, " [X]", x_attr)
         self.add(3, 2, title, curses.A_BOLD | self.color(1))
         if self.msg: self.add(h-4, 2, self.msg[:w-4], self.color(2) | curses.A_BOLD)
@@ -532,7 +532,7 @@ class TUI:
         is_hover_x = (y == 0 and self.w - 5 <= x <= self.w - 2)
         if is_hover_x != self._hover_x:
             self._hover_x = is_hover_x
-            attr = curses.A_REVERSE | curses.A_BOLD if is_hover_x else curses.A_BOLD | self.color(4)
+            attr = curses.A_BOLD | (self.color(5) if is_hover_x else self.color(4))
             try:
                 self.add(0, self.w - 5, " [X]", attr)
                 self.s.refresh()
