@@ -43,7 +43,11 @@ It automatically generates **fish** launchers, JSON/TOML config files, `.env` fi
 - **`.env` file** per profile
 - **Endpoint testing** built-in before saving (with "Testing..." feedback)
 - **Mouse text selection and copy**
-- **Exit confirmation** when data has been entered (form, options, and review)
+- **Exit confirmation** on all screens (form, options, review)
+- **Error handling** on save operations — no crashes, errors shown on screen
+- **Terminal size check** — minimum 24x50 lines required
+- **Fish detection** — launcher only created if fish is installed
+- **Hover effect** on the [X] button with highlight on mouse over
 - **`--plain` text mode** for terminals without curses support
 - **Shortcuts**: Ctrl+V paste, Ctrl+W delete word, Ctrl+U clear field
 - **[X] button** in the top-right corner to exit with mouse click
