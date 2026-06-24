@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.2-blue" alt="v6.2">
+  <img src="https://img.shields.io/badge/version-6.3-blue" alt="v6.3">
   <img src="https://img.shields.io/badge/python-3.8%2B-green" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/platform-linux-lightgrey" alt="Linux">
   <img src="https://img.shields.io/badge/shell-fish-orange" alt="Fish">
@@ -26,7 +26,7 @@
 
 ## 📋 About
 
-**Gateway TUI** is an interactive terminal tool that quickly configures **Claude Code** (Anthropic) or **Codex CLI** (OpenAI) to work with compatible gateways using `/v1/messages` (Anthropic) or `/v1/chat/completions` (OpenAI).
+**Gateway TUI** is an interactive terminal tool that quickly configures **Claude Code** (Anthropic) or **Codex CLI** (OpenAI) to work with compatible gateways using `/v1/messages` (Anthropic) or `/v1/responses` (current OpenAI/Codex).
 
 It automatically generates **fish** launchers, JSON/TOML config files, `.env` files, and global variables — no manual editing required.
 
@@ -140,10 +140,10 @@ Fallback mode for terminals without curses support, SSH without colors, or pipes
 Useful for automation or terminals without curses:
 
 ```bash
-printf "1\nmy-gateway\nhttps://api.openai.com/v1\ngpt-5.4\ny\nn\nn\nn\nn\nn\n" | python3 gateway-tui.py --plain
+python3 gateway-tui.py --plain
 ```
 
-`--plain` mode asks for the API key via `getpass` (secure, not in shell history).
+`--plain` mode asks for the API key via `getpass` (secure, not in shell history). Avoid passing the key through `printf` or shell arguments.
 
 ---
 
@@ -167,7 +167,7 @@ Configures `env.ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`.
 ### Config TOML (Codex CLI)
 `~/.codex/config.toml`
 
-Configures `openai.api_base_url`, `model`, `auth.api_key`.
+Configures `openai_base_url` and `model`. For API key authentication, use `codex login --with-api-key` or the generated launcher/env file.
 
 ### Env file
 `~/.claude-code-gateway/<profile>.env`
@@ -199,7 +199,7 @@ python3 gateway-tui.py
 # Tool: Codex CLI
 # Profile: codex-gateway
 # Base URL: https://api.openai.com/v1
-# Model: gpt-5.4
+# Model: gpt-5.5
 # ...
 
 codex-codex-gateway
@@ -216,5 +216,4 @@ codex-codex-gateway
 | **Terminal** | Any curses-compatible terminal |
 | **Mouse** | xterm, kitty, alacritty, foot, tmux, iTerm2 |
 | **Clipboard** | OSC52 (tmux/kitty/alacritty), wl-copy (Wayland), xclip/xsel (X11) |
-| **Gateway API** | Any Anthropic-compatible API (/v1/messages) or OpenAI-compatible (/v1/chat/completions) |
-
+| **Gateway API** | Any Anthropic-compatible API (/v1/messages) or OpenAI/Codex-compatible API (/v1/responses) |
