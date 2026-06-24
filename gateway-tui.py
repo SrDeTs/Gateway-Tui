@@ -78,6 +78,16 @@ def endpoint_for(cfg: Config) -> str:
     return codex_endpoint(cfg.base_url) if cfg.mode == "codex" else endpoint(cfg.base_url)
 
 
+def codex_gateway_hint(body: str, ep: str) -> str:
+    low = body.lower()
+    if "invalid json body" in low or "bad_request" in low:
+        return (
+            " Dica: Codex exige gateway compativel com OpenAI Responses API "
+            f"({ep}) e alguns gateways aceitam so /chat/completions."
+        )
+    return ""
+
+
 def mask(s: str) -> str:
     if not s:
         return "<vazio>"
@@ -177,7 +187,9 @@ def test_gateway(cfg: Config, timeout: int = 15) -> tuple[bool, str]:
                 except Exception:
                     return True, f"OK {r.status}. {body[:220]}"
         except urllib.error.HTTPError as e:
-            last_error = f"HTTP {e.code}: {e.read().decode(errors='replace')[:700]}"
+            body = e.read().decode(errors="replace")[:700]
+            hint = codex_gateway_hint(body, ep) if cfg.mode == "codex" else ""
+            last_error = f"HTTP {e.code}: {body}{hint}"
             if cfg.mode != "claude" or e.code not in (401, 403):
                 return False, last_error
         except Exception as e:
@@ -262,10 +274,11 @@ def write_launcher(cfg: Config) -> Path:
         if cfg.api_key:
             env_lines.append(f"    set -lx OPENAI_API_KEY {fish_escape(cfg.api_key)}")
         openai_base_arg = "openai_base_url=" + toml_string(codex_base(cfg.base_url))
+        no_store_arg = "disable_response_storage=true"
         lines = [
             f"function codex-{name}",
             *env_lines,
-            f"    codex --model {fish_escape(cfg.model)} -c {fish_escape(openai_base_arg)} $argv",
+            f"    codex --model {fish_escape(cfg.model)} --disable responses_websockets -c {fish_escape(openai_base_arg)} -c {fish_escape(no_store_arg)} $argv",
             "end",
             "",
         ]
