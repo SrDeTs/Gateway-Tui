@@ -70,8 +70,8 @@ curl -LO https://raw.githubusercontent.com/your-user/gateway-tui/main/gateway-tu
 chmod +x gateway-tui.py
 
 # Or copy to your PATH manually
-sudo cp gateway-tui.py /usr/local/bin/gateway-config
-sudo chmod +x /usr/local/bin/gateway-config
+sudo cp gateway-tui.py /usr/local/bin/gateway-tui
+sudo chmod +x /usr/local/bin/gateway-tui
 ```
 
 ### Dependencies
